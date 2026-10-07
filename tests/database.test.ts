@@ -162,3 +162,67 @@ describe("database access and conflict behavior", () => {
     expect(legacy.rows[0].translation).toBe("NIV");
   });
 });
+
+describe("chapter reading progress", () => {
+  it("saves once, validates the canon and supports undo", async () => {
+    await asUser(alice);
+    for (let i = 0; i < 2; i++)
+      await db.query(
+        "insert into public.chapter_progress(book,chapter) values ('GEN',1) on conflict (user_id,book,chapter) do nothing",
+      );
+    expect(
+      (await db.query("select * from public.chapter_progress")).rows,
+    ).toHaveLength(1);
+    for (const [book, chapter] of [
+      ["GEN", 51],
+      ["XXX", 1],
+      ["REV", 0],
+    ]) {
+      await expect(
+        db.query(
+          "insert into public.chapter_progress(book,chapter) values ($1,$2)",
+          [book, chapter],
+        ),
+      ).rejects.toThrow(/valid_chapter/);
+    }
+    await db.query(
+      "delete from public.chapter_progress where book='GEN' and chapter=1",
+    );
+    expect(
+      (await db.query("select * from public.chapter_progress")).rows,
+    ).toHaveLength(0);
+    await db.query(
+      "insert into public.chapter_progress(book,chapter) values ('REV',22)",
+    );
+  });
+  it("isolates accounts and rejects ownership reassignment and anonymous access", async () => {
+    await asUser(bob);
+    expect(
+      (await db.query("select * from public.chapter_progress")).rows,
+    ).toHaveLength(0);
+    expect(
+      (await db.query("delete from public.chapter_progress returning book"))
+        .rows,
+    ).toHaveLength(0);
+    await expect(
+      db.query(
+        "insert into public.chapter_progress(user_id,book,chapter) values ($1,'GEN',1)",
+        [alice],
+      ),
+    ).rejects.toThrow(/row-level security/);
+    await asUser(alice);
+    await expect(
+      db.query("update public.chapter_progress set user_id=$1", [bob]),
+    ).rejects.toThrow(/row-level security/);
+    await db.exec("reset role; set role anon;");
+    await expect(
+      db.query("select * from public.chapter_progress"),
+    ).rejects.toThrow(/permission denied/);
+    await expect(
+      db.query(
+        "insert into public.chapter_progress(book,chapter) values ('GEN',1)",
+      ),
+    ).rejects.toThrow(/permission denied/);
+    await db.exec("reset role;");
+  });
+});

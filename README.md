@@ -75,6 +75,7 @@ Local authentication reads `.env.local` (ignored by Git). Vercel needs the publi
 - Choose a book, chapter, and translation. Reference lookup accepts names and common aliases, such as `John 3:16`, `Psalm 23`, and `1 John 3:16–18`.
 - Click/tap verses to toggle a selection; Shift-click selects an inclusive range. All verse controls also work with keyboard focus and Enter/Space.
 - Pick a highlight color, bookmark the selection, or attach a note. Sign-in is required for these actions.
+- Use **Complete** below a chapter to mark it read; press **Completed** to mark it unread again. **View progress** (or **Reading progress** in navigation) shows all 1,189 chapters across 66 books. Progress is private to your signed-in account, shared across translations, and refreshed after writes, on focus, and when connectivity returns. Chapters are never marked automatically. Failed changes show a retry state instead of claiming success.
 - Notes autosave after 850 ms. “Saved to your account” means the write was confirmed. Failed writes retain a device draft when browser storage is available. Reopen unsynced drafts in **My saved library**.
 - Saved library filters cover notes, bookmarks, and highlights. Search matches note text, reference, and original translation. Note deletion requires confirmation.
 - Annotations match canonical verse numbers across translations; absent verses are not silently reassigned. Each note retains the version in which it was written.

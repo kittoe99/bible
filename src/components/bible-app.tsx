@@ -32,6 +32,7 @@ import {
   Cloud,
   Sun,
   ExternalLink,
+  CircleCheck,
 } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import {
@@ -59,6 +60,8 @@ import Dialog from "./dialog";
 import NoteEditor from "./note-editor";
 import { loadChapter } from "@/lib/scripture";
 import ReaderPicker from "./reader-picker";
+import ReadingProgress from "./reading-progress";
+import { chapterKey, useReadingProgress } from "@/lib/use-reading-progress";
 
 export default function BibleApp() {
   const [client] = useState(getSupabase);
@@ -67,6 +70,8 @@ export default function BibleApp() {
   const [position, setPosition] = useState<Position>(DEFAULT_POSITION);
   const [cloudReady, setCloudReady] = useState<string | null>(null);
   const userId = user?.id;
+  const progress = useReadingProgress(client, userId);
+  const [progressOpen, setProgressOpen] = useState(false);
   const [chapterData, setChapterData] = useState<Chapter | null>(null);
   const [loading, setLoading] = useState(true);
   const [chapterError, setChapterError] = useState<{
@@ -598,6 +603,16 @@ export default function BibleApp() {
             My saved library
             {items.length > 0 && <span className="count">{items.length}</span>}
           </button>
+          <button
+            onClick={() => {
+              setProgressOpen(true);
+              setSidebar(false);
+              void progress.refresh();
+            }}
+          >
+            <CircleCheck size={19} />
+            Reading progress
+          </button>
         </nav>
         <div className="library-heading">
           <span className="eyebrow">THE BIBLE</span>
@@ -883,6 +898,58 @@ export default function BibleApp() {
                       <a href="/copyright">Sources</a>
                     </div>
                   </>
+                )}
+                {!loading && !chapterError && chapterData && (
+                  <div className="chapter-completion">
+                    <button
+                      className={`complete-button ${progress.completed.has(chapterKey(position.book, position.chapter)) ? "is-complete" : ""}`}
+                      aria-pressed={progress.completed.has(
+                        chapterKey(position.book, position.chapter),
+                      )}
+                      aria-label={
+                        progress.completed.has(
+                          chapterKey(position.book, position.chapter),
+                        )
+                          ? "Completed — mark unread"
+                          : "Complete chapter"
+                      }
+                      disabled={Boolean(
+                        user &&
+                        (!progress.ready || progress.busy || progress.error),
+                      )}
+                      onClick={() => {
+                        if (requireUser())
+                          void progress.toggle(position.book, position.chapter);
+                      }}
+                    >
+                      <CircleCheck size={18} />
+                      {progress.busy
+                        ? "Saving…"
+                        : progress.completed.has(
+                              chapterKey(position.book, position.chapter),
+                            )
+                          ? "Completed"
+                          : "Complete"}
+                    </button>
+                    <button
+                      className="progress-link"
+                      onClick={() => {
+                        setProgressOpen(true);
+                        void progress.refresh();
+                      }}
+                    >
+                      View progress
+                      <ChevronRight size={14} />
+                    </button>
+                    {progress.error && (
+                      <div className="progress-error" role="alert">
+                        <span>{progress.error}</span>
+                        <button onClick={() => void progress.refresh()}>
+                          Retry sync
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )}
                 <div className="chapter-footer">
                   <button
@@ -1266,6 +1333,25 @@ export default function BibleApp() {
             <X size={15} />
           </button>
         </div>
+      )}
+      {progressOpen && (
+        <ReadingProgress
+          completed={progress.completed}
+          ready={progress.ready}
+          signedIn={Boolean(user)}
+          error={progress.error}
+          currentBook={position.book}
+          onClose={() => setProgressOpen(false)}
+          onRetry={() => void progress.refresh()}
+          onSignIn={() => {
+            setProgressOpen(false);
+            setAuthOpen(true);
+          }}
+          onOpen={(book, chapter) => {
+            setProgressOpen(false);
+            navigate({ book, chapter });
+          }}
+        />
       )}
       {authOpen && (
         <AuthDialog

@@ -1,5 +1,6 @@
 import { test, expect, type BrowserContext, type Page } from "@playwright/test";
 import type { StudyItem } from "../../src/lib/bible";
+import { BOOKS } from "../../src/lib/bible";
 import AxeBuilder from "@axe-core/playwright";
 const uid = "00000000-0000-4000-8000-000000000001";
 const user = {
@@ -16,6 +17,8 @@ const encoded = (value: unknown) =>
   Buffer.from(JSON.stringify(value)).toString("base64url");
 const token = `${encoded({ alg: "HS256", typ: "JWT" })}.${encoded({ sub: uid, aud: "authenticated", role: "authenticated", exp: Math.floor(Date.now() / 1000) + 3600 })}.fixture-signature`;
 type Cloud = {
+  progress: { user_id: string; book: string; chapter: number }[];
+  failProgress: boolean;
   items: StudyItem[];
   pref: Record<string, unknown> | null;
   failSave: boolean;
@@ -70,6 +73,32 @@ async function installMocks(context: BrowserContext, cloud: Cloud) {
         return reply({});
       if (url.pathname === "/auth/v1/signup")
         return reply({ user, session: null });
+      if (url.pathname === "/rest/v1/chapter_progress") {
+        if (cloud.failProgress)
+          return reply({ message: "Simulated failure" }, 503);
+        const book = url.searchParams.get("book")?.replace("eq.", "");
+        const chapter = Number(
+          url.searchParams.get("chapter")?.replace("eq.", ""),
+        );
+        if (method === "POST") {
+          if (
+            !cloud.progress.some(
+              (row) => row.book === data.book && row.chapter === data.chapter,
+            )
+          )
+            cloud.progress.push(data);
+          return reply(null);
+        }
+        if (method === "DELETE") {
+          cloud.progress = cloud.progress.filter(
+            (row) => row.book !== book || row.chapter !== chapter,
+          );
+          return reply(null);
+        }
+        const offset = Number(url.searchParams.get("offset") ?? 0);
+        const limit = Number(url.searchParams.get("limit") ?? 1000);
+        return reply(cloud.progress.slice(offset, offset + limit));
+      }
       if (url.pathname === "/rest/v1/reading_preferences") {
         if (method === "POST") {
           cloud.pref = Array.isArray(data) ? data[0] : data;
@@ -159,7 +188,165 @@ async function signIn(page: Page) {
     page.getByRole("button", { name: "Account", exact: true }),
   ).toBeVisible();
 }
-const cloudState = (): Cloud => ({ items: [], pref: null, failSave: false });
+const cloudState = (): Cloud => ({
+  items: [],
+  pref: null,
+  failSave: false,
+  progress: [],
+  failProgress: false,
+});
+
+test("manual chapter progress persists across translations, reloads and sessions, with undo and retry", async ({
+  page,
+  context,
+  browser,
+}) => {
+  const cloud = cloudState();
+  await installMocks(context, cloud);
+  await page.goto("/");
+  await page
+    .getByRole("button", { name: "Complete chapter", exact: true })
+    .click();
+  await expect(
+    page.getByRole("dialog", { name: "Account", exact: true }),
+  ).toBeVisible();
+  expect(cloud.progress).toHaveLength(0);
+  await page.getByRole("button", { name: "Close dialog" }).click();
+  await signIn(page);
+  const complete = page.getByRole("button", {
+    name: "Complete chapter",
+    exact: true,
+  });
+  await complete.click();
+  await expect(
+    page.getByRole("button", { name: "Completed — mark unread" }),
+  ).toHaveAttribute("aria-pressed", "true");
+  expect(cloud.progress).toHaveLength(1);
+  await page
+    .getByRole("button", { name: "Translation: KJV", exact: true })
+    .click();
+  await page.getByRole("option", { name: /^WEB —/ }).click();
+  await expect(
+    page.getByRole("button", { name: "Completed — mark unread" }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: "Completed — mark unread" }),
+  ).toBeVisible();
+  const otherContext = await browser.newContext();
+  await installMocks(otherContext, cloud);
+  const other = await otherContext.newPage();
+  await other.goto("/");
+  await signIn(other);
+  await expect(
+    other.getByRole("button", { name: "Completed — mark unread" }),
+  ).toBeVisible();
+  await otherContext.close();
+  await page
+    .getByRole("button", { name: "View progress", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", { name: "Reading progress" });
+  await expect(dialog.getByRole("progressbar")).toHaveAttribute("value", "1");
+  await expect(
+    dialog.getByRole("button", { name: "Genesis 1, completed", exact: true }),
+  ).toBeVisible();
+  await dialog.evaluate(async (el) => {
+    await Promise.all(el.getAnimations().map((a) => a.finished));
+  });
+  expect(
+    (await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze())
+      .violations,
+  ).toEqual([]);
+  await page.screenshot({
+    path: "test-results/progress-desktop.png",
+    animations: "disabled",
+  });
+  await dialog
+    .getByRole("button", { name: "Genesis 2, unread", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Genesis 2", exact: true }),
+  ).toBeVisible();
+  cloud.failProgress = true;
+  await complete.click();
+  await expect(
+    page.locator(".chapter-completion").getByRole("alert"),
+  ).toContainText("could not be confirmed");
+  expect(cloud.progress).toHaveLength(1);
+  cloud.failProgress = false;
+  await page.getByRole("button", { name: "Retry sync", exact: true }).click();
+  await complete.click();
+  await expect(
+    page.getByRole("button", { name: "Completed — mark unread" }),
+  ).toBeEnabled();
+  await page.getByRole("button", { name: "Completed — mark unread" }).click();
+  await expect(complete).toBeEnabled();
+  expect(cloud.progress).toHaveLength(1);
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page
+    .getByRole("button", { name: "View progress", exact: true })
+    .click();
+  await expect(page.locator("body")).toHaveJSProperty("scrollWidth", 320);
+  await page.screenshot({
+    path: "test-results/progress-mobile.png",
+    animations: "disabled",
+  });
+  await dialog.getByRole("button", { name: "Close dialog" }).click();
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  await page.getByRole("button", { name: "Sign out", exact: true }).click();
+  await page
+    .getByRole("button", { name: "View progress", exact: true })
+    .click();
+  await expect(dialog.getByRole("progressbar")).toHaveCount(0);
+  await expect(
+    dialog.getByText("Sign in to keep track", { exact: false }),
+  ).toBeVisible();
+});
+
+test("progress includes all 1189 chapters and refreshes on device focus", async ({
+  page,
+  context,
+}) => {
+  const cloud = cloudState();
+  cloud.progress = BOOKS.flatMap(([book, , chapters]) =>
+    Array.from({ length: chapters }, (_, i) => ({
+      user_id: uid,
+      book,
+      chapter: i + 1,
+    })),
+  );
+  await installMocks(context, cloud);
+  await page.goto("/");
+  await signIn(page);
+  await page
+    .getByRole("button", { name: "View progress", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", { name: "Reading progress" });
+  await expect(dialog.getByRole("progressbar")).toHaveAttribute(
+    "value",
+    "1189",
+  );
+  await dialog.getByLabel("Search progress books").fill("Revelation");
+  await dialog.getByRole("button", { name: "Revelation 22 / 22" }).click();
+  await expect(
+    dialog.getByRole("button", {
+      name: "Revelation 22, completed",
+      exact: true,
+    }),
+  ).toBeVisible();
+  cloud.progress = cloud.progress.filter(
+    (row) => row.book !== "REV" || row.chapter !== 22,
+  );
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await expect(dialog.getByRole("progressbar")).toHaveAttribute(
+    "value",
+    "1188",
+  );
+  await expect(
+    dialog.getByRole("button", { name: "Revelation 22, unread", exact: true }),
+  ).toBeVisible();
+});
 
 test("dedicated sign-in validates credentials, supports resend, and returns to reading", async ({
   page,

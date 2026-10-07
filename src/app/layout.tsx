@@ -4,6 +4,7 @@ import "./mobile-reader.css";
 import "./pickers.css";
 import "./responsive-reader.css";
 import "./auth.css";
+import "./progress.css";
 export const metadata: Metadata = {
   title: "Bible",
   description:
