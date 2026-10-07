@@ -64,7 +64,8 @@ async function installMocks(context: BrowserContext, cloud: Cloud) {
       if (url.pathname === "/auth/v1/user") return reply(user);
       if (
         url.pathname === "/auth/v1/logout" ||
-        url.pathname === "/auth/v1/recover"
+        url.pathname === "/auth/v1/recover" ||
+        url.pathname === "/auth/v1/resend"
       )
         return reply({});
       if (url.pathname === "/auth/v1/signup")
@@ -159,6 +160,119 @@ async function signIn(page: Page) {
   ).toBeVisible();
 }
 const cloudState = (): Cloud => ({ items: [], pref: null, failSave: false });
+
+test("dedicated sign-in validates credentials, supports resend, and returns to reading", async ({
+  page,
+  context,
+}) => {
+  await installMocks(context, cloudState());
+  let code = "invalid_credentials";
+  await page.route("**/auth/v1/token?*", (route) =>
+    route.fulfill({
+      status: 400,
+      json: { error_code: code, msg: "Authentication failed" },
+      headers: { "access-control-allow-origin": "*" },
+    }),
+  );
+  await page.goto("/auth/sign-in");
+  await expect(
+    page.getByRole("heading", { name: "Welcome back." }),
+  ).toBeVisible();
+  const scan = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa"])
+    .analyze();
+  expect(scan.violations).toEqual([]);
+  await page.screenshot({
+    path: "test-results/auth-desktop.png",
+    animations: "disabled",
+  });
+  await page.getByLabel("Email address").fill("reader@example.com");
+  await page.getByLabel("Password", { exact: true }).fill("example-password");
+  await page
+    .getByRole("button", { name: "Show password", exact: true })
+    .click();
+  await expect(page.getByLabel("Password", { exact: true })).toHaveAttribute(
+    "type",
+    "text",
+  );
+  await page
+    .getByRole("button", { name: "Hide password", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Sign in", exact: true })
+    .last()
+    .click();
+  await expect(page.getByRole("main").getByRole("alert")).toContainText(
+    "email or password is incorrect",
+  );
+  code = "email_not_confirmed";
+  await page
+    .getByRole("button", { name: "Sign in", exact: true })
+    .last()
+    .click();
+  await expect(page.getByRole("main").getByRole("alert")).toContainText(
+    "Confirm your email",
+  );
+  await page.getByRole("button", { name: "Resend confirmation email" }).click();
+  await expect(page.getByRole("status")).toContainText("new confirmation link");
+  await expect(page.getByRole("button", { name: /Resend in/ })).toBeDisabled();
+  await page.unroute("**/auth/v1/token?*");
+  await page
+    .getByRole("button", { name: "Sign in", exact: true })
+    .last()
+    .click();
+  await expect(page).toHaveURL("http://127.0.0.1:3100/");
+  await expect(
+    page.getByRole("button", { name: "Account", exact: true }),
+  ).toBeVisible();
+});
+
+test("mobile registration catches password mismatch and expired recovery allows a new link", async ({
+  page,
+  context,
+}) => {
+  await installMocks(context, cloudState());
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto("/auth/sign-in");
+  await page
+    .getByRole("button", { name: "Create account", exact: true })
+    .click();
+  await page.getByLabel("Email address").fill("reader@example.com");
+  await page.getByLabel("Password", { exact: true }).fill("example-password");
+  await page
+    .getByLabel("Confirm password", { exact: true })
+    .fill("different-password");
+  let registrations = 0;
+  page.on("request", (request) => {
+    if (request.url().includes("/auth/v1/signup")) registrations++;
+  });
+  await page.getByRole("button", { name: "Create your account" }).click();
+  await expect(page.getByRole("main").getByRole("alert")).toContainText(
+    "passwords don’t match",
+  );
+  expect(registrations).toBe(0);
+  await expect(page.locator("body")).toHaveJSProperty("scrollWidth", 320);
+  await page.screenshot({
+    path: "test-results/auth-mobile.png",
+    animations: "disabled",
+  });
+  await page
+    .getByLabel("Confirm password", { exact: true })
+    .fill("example-password");
+  await page.getByRole("button", { name: "Create your account" }).click();
+  await expect(page.getByRole("status")).toContainText("Check your email");
+  await page.goto("/auth/reset-password");
+  await expect(page.getByRole("main").getByRole("alert")).toContainText(
+    "expired or is invalid",
+  );
+  await expect(
+    page.getByRole("button", { name: "Update password" }),
+  ).toBeDisabled();
+  await page.getByRole("button", { name: "Request a new reset link" }).click();
+  await page.getByLabel("Email address").fill("reader@example.com");
+  await page.getByRole("button", { name: "Send reset link" }).click();
+  await expect(page.getByRole("status")).toContainText("password reset link");
+});
 
 test("styled pickers support search, keyboard navigation, focus restoration, and mobile chapters", async ({
   page,
@@ -566,6 +680,9 @@ test("registration, password reset, password update, and sign out", async ({
   await dialog.getByLabel("Email address").fill("reader@example.com");
   await dialog.getByLabel("Password", { exact: true }).fill("example-password");
   await dialog
+    .getByLabel("Confirm password", { exact: true })
+    .fill("example-password");
+  await dialog
     .getByRole("button", { name: "Create your account", exact: true })
     .click();
   await expect(dialog.getByRole("status")).toContainText("Check your email");
@@ -578,13 +695,16 @@ test("registration, password reset, password update, and sign out", async ({
   await expect(dialog.getByRole("status")).toContainText("password reset link");
   await dialog.getByRole("button", { name: "Close dialog" }).click();
   await signIn(page);
-  await page.goto("/?recovery=1");
+  await page.goto("/auth/reset-password");
   await expect(
     page.getByRole("heading", { name: "Choose a new password" }),
   ).toBeVisible();
   await page.getByLabel("Password", { exact: true }).fill("changed-password");
+  await page
+    .getByLabel("Confirm password", { exact: true })
+    .fill("changed-password");
   await page.getByRole("button", { name: "Update password" }).click();
-  await expect(page.getByRole("dialog")).toBeHidden();
+  await expect(page).toHaveURL("http://127.0.0.1:3100/");
   await page.getByRole("button", { name: "Reading settings" }).click();
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await expect(

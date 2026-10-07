@@ -64,6 +64,12 @@ Downloads are cached in ignored `.bible-sources/`. The importer rejects archive 
 
 Bundling removes external provider dependencies; it does not install a full offline PWA. The app's host still needs to be reachable for uncached assets.
 
+## Authentication
+
+Open `/auth/sign-in` or use **Sign in** in the reader. The shared account form supports email/password sign-in, account creation with password confirmation, confirmation email resend with a cooldown, password visibility, and password reset. Successful sign-in returns to Scripture. Reset links pass through `/auth/callback` to `/auth/reset-password`; invalid or expired links provide a recovery path. Reading always remains available without an account.
+
+Local authentication reads `.env.local` (ignored by Git). Vercel needs the public environment variables and Supabase redirect URLs listed above. No secret or service-role key is required. Browser authentication tests use mocked responses; they do not send real verification or reset emails.
+
 ## Using the app
 
 - Choose a book, chapter, and translation. Reference lookup accepts names and common aliases, such as `John 3:16`, `Psalm 23`, and `1 John 3:16–18`.
