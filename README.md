@@ -15,6 +15,8 @@ Open http://127.0.0.1:3000. **Scripture works immediately without any credential
 
 ## Connect Supabase
 
+This app targets [Supabase project `wujruiqjkjgtptlcnmvm`](https://supabase.com/dashboard/project/wujruiqjkjgtptlcnmvm). The public project URL is included in `.env.example`; no credentials are committed. The migrations below must be applied to that project before cloud saving works.
+
 1. Create a Supabase project and run `supabase/migrations/001_study.sql` in the SQL editor, or apply it with the Supabase CLI. Apply `supabase/migrations/002_bundled_translations.sql` next (existing installations only need this second migration). The migrations create private study records, reading preferences, indexes, row-level security policies, and atomic note/annotation functions.
 2. Enable email/password authentication and email confirmation. Configure production SMTP before public use.
 3. Set **Authentication → URL Configuration → Site URL** to your app origin. Allow these redirect URLs for local development and their equivalents for your production origin:
@@ -24,6 +26,19 @@ Open http://127.0.0.1:3000. **Scripture works immediately without any credential
 5. Registration uses PKCE confirmation links. For confirmation links that also work when opened on another device, change the confirmation email template link to `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=signup`. For password recovery, use `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=recovery`. The callback supports both the normal code flow and these token-hash flows.
 
 The browser uses Supabase Auth and RLS directly. No elevated database credential is needed by the app. All note writes use a revision-checked RPC; conflicts preserve the local draft and offer **Save draft as a copy** or **Discard draft and use saved note**. Highlights and bookmarks are independent, canonical per-verse records and change transactionally across a selection.
+
+### Vercel environment
+
+In Vercel → Project → Settings → Environment Variables, set these for Production (and Preview if needed):
+
+| Variable                               | Value                                                             |
+| -------------------------------------- | ----------------------------------------------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`             | `https://wujruiqjkjgtptlcnmvm.supabase.co`                        |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | The project's publishable key from Supabase → Settings → API Keys |
+
+A legacy `anon` key also works in `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Do not use a secret or `service_role` key. Redeploy after adding or changing these variables because Next.js embeds public variables at build time.
+
+In Supabase → Authentication → URL Configuration, set **Site URL** to your production Vercel origin and add `https://YOUR-DOMAIN/auth/callback` and `https://YOUR-DOMAIN/auth/callback?recovery=1` as redirect URLs. Keep email/password authentication enabled. Add equivalent callback URLs for any preview deployments where sign-in is needed. These settings allow verification and password-reset links to return to your app.
 
 ## Bundled Scripture — no API
 
