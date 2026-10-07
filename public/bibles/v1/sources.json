@@ -1,0 +1,26 @@
+{
+  "KJV": {
+    "source": "https://ebible.org/Scriptures/eng-kjv_vpl.zip",
+    "sha256": "3c611764ee4c66248681f83f1ce5689e77a9c50a590fc3241584259c1b9183b5",
+    "books": 66,
+    "chapters": 1189,
+    "verses": 31102,
+    "license": "https://ebible.org/eng-kjv/copyright.htm"
+  },
+  "WEB": {
+    "source": "https://ebible.org/Scriptures/eng-web_vpl.zip",
+    "sha256": "9f9af2bb7ade5d8996ae714922cfaf37a7b18f117a33b7051febc4906ffdaeb4",
+    "books": 66,
+    "chapters": 1189,
+    "verses": 31098,
+    "license": "https://ebible.org/eng-web/copyright.htm"
+  },
+  "ASV": {
+    "source": "https://ebible.org/Scriptures/eng-asv_vpl.zip",
+    "sha256": "c4f7ec8e1ea3af344b554ad36618a84226d91c674b1d2f765844e06ea1b12f45",
+    "books": 66,
+    "chapters": 1189,
+    "verses": 31086,
+    "license": "https://ebible.org/eng-asv/copyright.htm"
+  }
+}
