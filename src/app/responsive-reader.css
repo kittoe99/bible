@@ -68,7 +68,7 @@
     left: auto;
     right: 24px;
     top: 24px;
-    bottom: 112px;
+    bottom: calc(18px + env(safe-area-inset-bottom));
     width: min(400px, calc(100% - 48px));
   }
   .saved-grid {
@@ -142,8 +142,7 @@
   }
   .mobile-menu,
   .mobile-sidebar-close,
-  .drawer-backdrop,
-  .bottom-nav {
+  .drawer-backdrop {
     display: none;
   }
   .workspace {
@@ -299,16 +298,9 @@
 }
 
 @media (max-height: 540px) and (max-width: 1023px) {
-  .bottom-nav {
-    bottom: 8px;
-    min-height: 56px;
-  }
-  .bottom-nav button {
-    min-height: 42px;
-  }
   .notes-panel,
   .notes-visible .notes-panel {
     top: 12px;
-    bottom: 78px;
+    bottom: calc(12px + env(safe-area-inset-bottom));
   }
 }

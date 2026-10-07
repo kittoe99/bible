@@ -1970,3 +1970,11 @@ svg {
     scroll-behavior: auto !important;
   }
 }
+
+/* Keep native selection/callouts separate from the app's verse selection. */
+.scripture,
+.scripture * {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}

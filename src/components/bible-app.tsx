@@ -577,9 +577,11 @@ export default function BibleApp() {
         >
           <X size={20} />
         </button>
-        <nav className="primary-nav">
+        <nav className="primary-nav" aria-label="App navigation">
           <button
             className={view === "read" ? "active" : ""}
+            aria-label="Read the Bible"
+            aria-current={view === "read" ? "page" : undefined}
             onClick={() => {
               setView("read");
               setSidebar(false);
@@ -587,11 +589,13 @@ export default function BibleApp() {
             }}
           >
             <BookOpen size={19} />
-            Read the Bible
+            Bible
             <span className="nav-active-dot" />
           </button>
           <button
             className={view === "saved" ? "active" : ""}
+            aria-label="My saved library"
+            aria-current={view === "saved" ? "page" : undefined}
             onClick={() => {
               setView("saved");
               setSidebar(false);
@@ -600,7 +604,7 @@ export default function BibleApp() {
             }}
           >
             <Bookmark size={19} />
-            My saved library
+            Saved
             {items.length > 0 && <span className="count">{items.length}</span>}
           </button>
           <button
@@ -612,6 +616,16 @@ export default function BibleApp() {
           >
             <CircleCheck size={19} />
             Reading progress
+          </button>
+          <button
+            aria-label="Reading settings"
+            onClick={() => {
+              setSettings(true);
+              setSidebar(false);
+            }}
+          >
+            <Settings2 size={19} />
+            Settings
           </button>
         </nav>
         <div className="library-heading">
@@ -667,18 +681,6 @@ export default function BibleApp() {
               b[1].toLowerCase().includes(bookSearch.toLowerCase()),
             ) && <p className="muted small">No books found.</p>}
         </nav>
-        <div className="sidebar-bottom">
-          <button
-            className="profile-button"
-            aria-label="Reading settings"
-            onClick={() => {
-              setSettings(true);
-              setSidebar(false);
-            }}
-          >
-            <Settings2 size={19} /> <span>Settings</span>
-          </button>
-        </div>
       </aside>
       <div className="workspace">
         <header className="topbar">
@@ -853,6 +855,8 @@ export default function BibleApp() {
                   <>
                     <div
                       className="scripture"
+                      onContextMenu={(event) => event.preventDefault()}
+                      onDragStart={(event) => event.preventDefault()}
                       key={`${position.book}.${position.chapter}.${position.translation}`}
                       style={{ fontSize: position.fontSize }}
                     >
@@ -1220,50 +1224,6 @@ export default function BibleApp() {
           )}
         </main>
       </div>
-      <nav
-        className="bottom-nav"
-        aria-label="App navigation"
-        style={
-          {
-            "--tab-index": settings ? 2 : view === "saved" ? 1 : 0,
-          } as CSSProperties
-        }
-      >
-        <span className="nav-indicator" aria-hidden="true" />
-        <button
-          className={view === "read" && !settings ? "active" : ""}
-          aria-label="Read the Bible"
-          aria-current={view === "read" ? "page" : undefined}
-          onClick={() => {
-            setView("read");
-            setNotesOpen(false);
-          }}
-        >
-          <BookOpen size={22} />
-          <span>Bible</span>
-        </button>
-        <button
-          className={view === "saved" && !settings ? "active" : ""}
-          aria-label="My saved library"
-          aria-current={view === "saved" ? "page" : undefined}
-          onClick={() => {
-            setView("saved");
-            setNotesOpen(false);
-            if (user) void refresh();
-          }}
-        >
-          <Bookmark size={22} />
-          <span>Saved</span>
-        </button>
-        <button
-          className={settings ? "active" : ""}
-          aria-label="Reading settings"
-          onClick={() => setSettings(true)}
-        >
-          <Settings2 size={22} />
-          <span>Settings</span>
-        </button>
-      </nav>
       {selected.length > 0 && view === "read" && !notesOpen && (
         <div
           className="selection-bar"

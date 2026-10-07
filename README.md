@@ -1,6 +1,6 @@
 # Bible
 
-A minimal, responsive Bible reader built with Next.js App Router, TypeScript, Tailwind CSS, and optional Supabase cloud saving. Opens straight to Scripture. Phones use drawers and bottom navigation, tablets have a wider reading surface, and desktops have a persistent book sidebar with notes beside the reader on wide screens. White and gray surfaces, soft shadows, keyboard-friendly pickers, and reduced-motion support.
+A minimal, responsive Bible reader built with Next.js App Router, TypeScript, Tailwind CSS, and optional Supabase cloud saving. Opens straight to Scripture. Phones use a navigation drawer, tablets have a wider reading surface, and desktops have a persistent book sidebar with notes beside the reader on wide screens. White and gray surfaces, soft shadows, keyboard-friendly pickers, and reduced-motion support.
 
 ## Run locally
 
@@ -73,6 +73,7 @@ Local authentication reads `.env.local` (ignored by Git). Vercel needs the publi
 ## Using the app
 
 - Choose a book, chapter, and translation. Reference lookup accepts names and common aliases, such as `John 3:16`, `Psalm 23`, and `1 John 3:16–18`.
+- Bible, Saved, Settings, and Reading progress are in the navigation menu (open the menu button on smaller screens). There is no floating navigation bar. Native text selection and long-press callouts are disabled on Scripture; note and account inputs remain editable.
 - Click/tap verses to toggle a selection; Shift-click selects an inclusive range. All verse controls also work with keyboard focus and Enter/Space.
 - Pick a highlight color, bookmark the selection, or attach a note. Sign-in is required for these actions.
 - Use **Complete** below a chapter to mark it read; press **Completed** to mark it unread again. **View progress** (or **Reading progress** in navigation) shows all 1,189 chapters across 66 books. Progress is private to your signed-in account, shared across translations, and refreshed after writes, on focus, and when connectivity returns. Chapters are never marked automatically. Failed changes show a retry state instead of claiming success.

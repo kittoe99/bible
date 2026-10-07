@@ -575,11 +575,11 @@ test("bundled Scripture works without provider access across screen sizes", asyn
       await expect(navigation).not.toHaveAttribute("inert");
       await expect(
         page.getByRole("navigation", { name: "App navigation" }),
-      ).toBeHidden();
+      ).toBeVisible();
     } else {
       await expect(navigation).toBeHidden();
       await expect(
-        page.getByRole("navigation", { name: "App navigation" }),
+        page.getByRole("button", { name: "Open navigation" }),
       ).toBeVisible();
     }
     await page.screenshot({
@@ -658,7 +658,7 @@ test("reading navigation, missing verses, restoration, and mobile layout", async
   ).toBeVisible();
   await expect(
     page.getByRole("navigation", { name: "App navigation" }),
-  ).toBeHidden();
+  ).toBeVisible();
   await expect(
     page.getByRole("complementary", { name: "Notes and reflections" }),
   ).toBeHidden();
@@ -898,6 +898,60 @@ test("registration, password reset, password update, and sign out", async ({
     page.getByRole("button", { name: "Sign in", exact: true }),
   ).toBeVisible();
 });
+test("mobile menu contains navigation while native Scripture selection stays disabled", async ({
+  page,
+  context,
+}) => {
+  await installMocks(context, cloudState());
+  await page.goto("/");
+  await signIn(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.locator(".bottom-nav")).toHaveCount(0);
+  const menu = page.getByRole("navigation", { name: "App navigation" });
+  await page.getByRole("button", { name: "Open navigation" }).click();
+  await expect(
+    menu.getByRole("button", { name: "Reading settings" }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: "test-results/navigation-menu-mobile.png",
+    animations: "disabled",
+  });
+  await menu.getByRole("button", { name: "My saved library" }).click();
+  await expect(menu).toBeHidden();
+  await expect(page.locator(".saved-card")).toBeVisible();
+  await page.getByRole("button", { name: "Open navigation" }).click();
+  await menu.getByRole("button", { name: "Read the Bible" }).click();
+  await expect(page.locator("#verse-1")).toBeVisible();
+  await page.getByRole("button", { name: "Open navigation" }).click();
+  await menu.getByRole("button", { name: "Reading settings" }).click();
+  await expect(page.getByLabel("Scripture text size")).toBeVisible();
+  await page.getByRole("button", { name: "Close dialog" }).click();
+  const verse = page.locator("#verse-1");
+  await verse.dblclick();
+  expect(await page.evaluate(() => window.getSelection()?.toString())).toBe("");
+  await expect(verse).toHaveCSS("user-select", "none");
+  await page.keyboard.press("Escape");
+  await verse.click();
+  await page.getByRole("button", { name: "Highlight sage" }).click();
+  await expect(verse).toHaveClass(/highlight-sage/);
+  await page.getByRole("button", { name: "Bookmark", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Unmark", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Add note", exact: true }).click();
+  const note = page.getByRole("textbox", { name: "Your note" });
+  await note.fill("Notes still support selecting and editing text.");
+  await note.press("ControlOrMeta+a");
+  expect(
+    await note.evaluate(
+      (element: HTMLTextAreaElement) =>
+        element.selectionEnd - element.selectionStart,
+    ),
+  ).toBe(47);
+  await note.press("Backspace");
+  await expect(note).toHaveValue("");
+});
+
 test("reader and account dialog pass accessibility checks and keyboard selection", async ({
   page,
   context,
@@ -952,10 +1006,7 @@ test("reader and account dialog pass accessibility checks and keyboard selection
     "animation-name",
     "none",
   );
-  await expect(page.locator(".nav-indicator")).toHaveCSS(
-    "transition-duration",
-    "0s",
-  );
+  await expect(page.locator(".bottom-nav")).toHaveCount(0);
   await page.getByRole("button", { name: "Reading settings" }).click();
   await expect(page.getByRole("dialog")).toHaveCSS("animation-name", "none");
   await page.keyboard.press("Escape");
