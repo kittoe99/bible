@@ -26,9 +26,9 @@ export default function Setup() {
           .
         </li>
         <li>
-          Apply <code>supabase/migrations/001_study.sql</code>, then{" "}
-          <code>002_bundled_translations.sql</code>. Existing installations only
-          need the second migration.
+          For a new project, apply the SQL files in{" "}
+          <code>supabase/migrations</code> in filename order. The configured
+          project already has its database schema.
         </li>
         <li>
           Enable email/password authentication. Add your app origin and{" "}

@@ -15,9 +15,9 @@ Open http://127.0.0.1:3000. **Scripture works immediately without any credential
 
 ## Connect Supabase
 
-This app targets [Supabase project `wujruiqjkjgtptlcnmvm`](https://supabase.com/dashboard/project/wujruiqjkjgtptlcnmvm). The public project URL is included in `.env.example`; no credentials are committed. The migrations below must be applied to that project before cloud saving works.
+This app targets [Supabase project `wujruiqjkjgtptlcnmvm`](https://supabase.com/dashboard/project/wujruiqjkjgtptlcnmvm). The public project URL is included in `.env.example`; no credentials are committed. The schema and translation migrations have been applied to this project. Live transactional checks verified note saves, stale-edit conflicts, highlights, bookmarks, reading preferences, account isolation, and anonymous access denial. Verification data was rolled back. The Supabase security advisor reports no findings after restricting a pre-existing administrative helper. Vercel environment variables and production Auth redirect URLs still need to be configured.
 
-1. Create a Supabase project and run `supabase/migrations/001_study.sql` in the SQL editor, or apply it with the Supabase CLI. Apply `supabase/migrations/002_bundled_translations.sql` next (existing installations only need this second migration). The migrations create private study records, reading preferences, indexes, row-level security policies, and atomic note/annotation functions.
+1. For a new project, apply every SQL file in `supabase/migrations/` in filename order. The configured project already has these migrations. Local filenames match the hosted migration history; do not rerun applied migrations. The schema includes private study records, reading preferences, indexes, row-level security policies, and atomic note/annotation functions.
 2. Enable email/password authentication and email confirmation. Configure production SMTP before public use.
 3. Set **Authentication → URL Configuration → Site URL** to your app origin. Allow these redirect URLs for local development and their equivalents for your production origin:
    - `http://127.0.0.1:3000/auth/callback`
@@ -50,7 +50,7 @@ All three editions are checked into `public/bibles/v1/`, split into 1,189 chapte
 | WEB     | [World English Bible Classic](https://ebible.org/eng-web/copyright.htm)                    | Public domain; the name is a trademark and must not be used for modified text    |
 | ASV     | [American Standard Version, 1901](https://ebible.org/eng-asv/copyright.htm)                | Public domain                                                                    |
 
-NIV and ESV were replaced with freely distributable editions. Existing notes retain their original translation label and open the same passage in KJV; old reading preferences retain the book/chapter and switch to KJV. Apply migration 002 before saving WEB/ASV study material to an existing database.
+NIV and ESV were replaced with freely distributable editions. Existing notes retain their original translation label and open the same passage in KJV; old reading preferences retain the book/chapter and switch to KJV. The bundled-translations migration enables WEB/ASV study material without changing older notes.
 
 The import uses the publishers' verse-per-line files. Explicit source book identifiers are mapped to the app's canonical identifiers; source verse numbers, supplied-word brackets, paragraph marks, and Psalm superscriptions are preserved. Blank verses remain gaps, never renumbered. Only the 66-book Protestant canon is included. Source copyright notices, SHA-256 archive hashes, and counts are recorded in `public/bibles/v1/sources.json` and adjacent source-notice HTML files.
 
@@ -89,11 +89,11 @@ npm run build
 
 - Corpus tests read every bundled chapter, validate ordered verse numbers and nonempty text, verify source passages and numbering gaps, and test local loading errors.
 - Navigation tests cover all 66 books and 1,189 chapters, reference parsing, and legacy preference migration.
-- Database tests apply both migrations in PGlite with real PostgreSQL roles and simulated `auth.uid()` identities. They verify account isolation, anonymous denial, optimistic conflicts, transactional annotations, and input constraints.
+- Database tests apply all migrations in PGlite with real PostgreSQL roles and simulated `auth.uid()` identities. They verify account isolation, anonymous denial, optimistic conflicts, transactional annotations, and input constraints.
 - Browser tests use real bundled Scripture for responsive screens from 320px to 1920px, translation switching, restoration, and retry behavior. Study-flow tests use synthetic passages and mocked Supabase transport for auth, autosave, conflicts, cross-session state, and deletion. Accessibility checks use axe and keyboard interactions.
 - Screenshots and failure traces are written to ignored `test-results/`.
 
-Live Supabase email delivery and cross-device saving require the app environment variables and applied migrations. They cannot be verified by mocked browser/database tests. Connecting Supabase MCP in Codex does not itself configure the app.
+The live database has been verified separately through Supabase. Email delivery and end-to-end browser cloud saving still require the Vercel environment variables and production Auth redirect URLs; these have not been verified on a deployed app.
 
 ## Architecture
 
